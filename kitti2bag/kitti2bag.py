@@ -291,6 +291,7 @@ def run_kitti2bag():
     parser.add_argument("-t", "--date", help = "date of the raw dataset (i.e. 2011_09_26), option is only for RAW datasets.")
     parser.add_argument("-r", "--drive", help = "drive number of the raw dataset (i.e. 0001), option is only for RAW datasets.")
     parser.add_argument("-s", "--sequence", choices = odometry_sequences,help = "sequence of the odometry dataset (between 00 - 21), option is only for ODOMETRY datasets.")
+    parser.add_argument("--sim_path", help= "Path for imulated IMU measurements")
     args = parser.parse_args()
 
     bridge = CvBridge()
@@ -329,8 +330,8 @@ def run_kitti2bag():
 
         try:
             # IMU
-            imu_frame_id = 'imu_link'
-            imu_topic = '/kitti/oxts/imu'
+            # imu_frame_id = 'imu_link'
+            # imu_topic = '/kitti/oxts/imu'
             gps_fix_topic = '/kitti/oxts/gps/fix'
             gps_vel_topic = '/kitti/oxts/gps/vel'
             velo_frame_id = 'velo_link'
@@ -352,14 +353,24 @@ def run_kitti2bag():
             util = pykitti.utils.read_calib_file(os.path.join(kitti.calib_path, 'calib_cam_to_cam.txt'))
 
             # Export
-            save_static_transforms(bag, args.kitti_type, transforms, kitti.timestamps)
-            save_dynamic_tf(bag, args.kitti_type, kitti, initial_time=None)
-            save_imu_data(bag, kitti, imu_frame_id, imu_topic)
+            save_static_transforms(bag, transforms, kitti.timestamps)
+            save_dynamic_tf(bag, kitti, args.kitti_type, initial_time=None)
+            # save_imu_data(bag, kitti, imu_frame_id, imu_topic)
             save_gps_fix_data(bag, kitti, imu_frame_id, gps_fix_topic)
             save_gps_vel_data(bag, kitti, imu_frame_id, gps_vel_topic)
+            
+            sim_path = args.sim_path
+            if sim_path:
+                # if simulation path is enabled
+                imu_frame_id = 'imu_link'
+                imu_topic = '/kitti/oxts/imu'
+
+                imu_sim = load_simulated_imu(sim_path)
+                save_simulated_imu_data(bag, imu_sim, imu_frame_id, imu_topic, init_time=0)
+
             for camera in cameras:
                 save_camera_data(bag, args.kitti_type, kitti, util, bridge, camera=camera[0], camera_frame_id=camera[1], topic=camera[2], initial_time=None)
-            save_velo_data(bag, args.kitti_type, kitti, velo_frame_id, velo_topic, initial_time=None)
+            # save_velo_data(bag, kitti, velo_frame_id, velo_topic)
 
         finally:
             print("## OVERVIEW ##")
@@ -415,3 +426,42 @@ def run_kitti2bag():
             print("## OVERVIEW ##")
             print(bag)
             bag.close()
+            
+def load_simulated_imu(file_path):
+    '''
+    Load the simulated IMU measurements.
+    '''
+    print("Loading from simulated IMU measurements. " + file_path)
+    imu_meas = pd.read_csv(file_path, header=None).to_numpy()
+
+    print("Example IMU measurements record:")
+    print(imu_meas[0, :])
+    return imu_meas
+
+def save_simulated_imu_data(bag, imu_data, imu_frame_id, topic, init_time):
+    '''
+    Save the simulated IMU measurements data to rosbag.
+    :param bag: the ros bag to write to
+    :param imu_data: numpy array of the simulated imu data; (t, ax, ay, az, wx, wy, wz)
+    :param imu_frame_id;
+    :param topic: the topic to output to
+    :param init_time: the starting time
+    '''
+    print("Exporting simulated IMU data.")
+    for i in range(imu_data.shape[0]):
+        imu_meas = imu_data[i, :]
+        timestamp = imu_meas[0]
+        imu = Imu()
+        imu.header.frame_id = imu_frame_id
+        imu.header.stamp = rospy.Time.from_sec(timestamp + init_time) 
+        # imu.orientation.x = q[0]
+        # imu.orientation.y = q[1]
+        # imu.orientation.z = q[2]
+        # imu.orientation.w = q[3]
+        imu.linear_acceleration.x = imu_meas[1]
+        imu.linear_acceleration.y = imu_meas[2]
+        imu.linear_acceleration.z = imu_meas[3]
+        imu.angular_velocity.x = imu_meas[4]
+        imu.angular_velocity.y = imu_meas[5]
+        imu.angular_velocity.z = imu_meas[6]
+        bag.write(topic, imu, t=imu.header.stamp)
