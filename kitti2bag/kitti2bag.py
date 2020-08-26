@@ -330,8 +330,8 @@ def run_kitti2bag():
 
         try:
             # IMU
-            # imu_frame_id = 'imu_link'
-            # imu_topic = '/kitti/oxts/imu'
+            imu_frame_id = 'imu_link'
+            imu_topic = '/kitti/oxts/imu'
             gps_fix_topic = '/kitti/oxts/gps/fix'
             gps_vel_topic = '/kitti/oxts/gps/vel'
             velo_frame_id = 'velo_link'
@@ -362,8 +362,8 @@ def run_kitti2bag():
             sim_path = args.sim_path
             if sim_path:
                 # if simulation path is enabled
-                imu_frame_id = 'imu_link'
-                imu_topic = '/kitti/oxts/imu'
+                #imu_frame_id = 'imu_link'
+                #imu_topic = '/kitti/oxts/imu'
 
                 imu_sim = load_simulated_imu(sim_path)
                 save_simulated_imu_data(bag, imu_sim, imu_frame_id, imu_topic, init_time=0)
