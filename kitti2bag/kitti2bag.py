@@ -353,7 +353,7 @@ def run_kitti2bag():
             util = pykitti.utils.read_calib_file(os.path.join(kitti.calib_path, 'calib_cam_to_cam.txt'))
 
             # Export
-            save_static_transforms(bag, transforms, kitti.timestamps)
+            save_static_transforms(bag, args.kitti_type, transforms, kitti.timestamps)
             save_dynamic_tf(bag, kitti, args.kitti_type, initial_time=None)
             # save_imu_data(bag, kitti, imu_frame_id, imu_topic)
             save_gps_fix_data(bag, kitti, imu_frame_id, gps_fix_topic)
